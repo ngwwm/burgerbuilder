@@ -1,9 +1,7 @@
-import React, { Component } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import Burger from '../../components/Burger/Burger';
 import BuildControls from '../../components/Burger/BuildControls/BuildControls';
 import Modal from '../../components/UI/Modal/Modal';
-
-import Aux from '../../hoc/Auxx';
 import OrderSummary from '../../components/Burger/OrderSummary/OrderSummary';
 
 const INGREDIENT_PRICES = {
@@ -13,99 +11,80 @@ const INGREDIENT_PRICES = {
     meat: 0.7
 }
 
-class BurgerBuilder extends Component {
-    state = {
-        ingredients: {
-            salad: 0,
-            bacon: 0,
-            cheese: 0,
-            meat: 0
-        },
-        totalPrice: 4,
-        purchasable: false,
-        purchasing: false
-    }
+const BurgerBuilder = () => {
+    const [ingredients, setIngredients] = useState({
+        salad: 0,
+        bacon: 0,
+        cheese: 0,
+        meat: 0
+    });
+    const [totalPrice, setTotalPrice] = useState(4);
+    const [purchasing, setPurchasing] = useState(false);
 
-    updatePurchaseState = (ingredients) => {
+    const purchasable = useMemo(() => {
         const sum = Object.keys(ingredients)
-            .map(igKey => {
-                return ingredients[igKey];
-            })
-            .reduce((sum, el) => {
-                return sum + el;
-            }, 0);
-        this.setState({purchasable: sum > 0});
-    }
+            .reduce((sum, igKey) => sum + ingredients[igKey], 0);
+        return sum > 0;
+    }, [ingredients]);
 
-    purchaseHandler = () => {
-        this.setState({purchasing: true});
-    }
+    const purchaseHandler = () => {
+        setPurchasing(true);
+    };
 
-    purchaseCancelHandler = () => {
-        this.setState({purchasing: false});
-    }
+    const purchaseCancelHandler = () => {
+        setPurchasing(false);
+    };
 
-    purchaseContinueHandler = () => {
+    const purchaseContinueHandler = () => {
         alert('You continue!');
-    }
-    addIngredientHandler = (type) => {
-        const oldCount = this.state.ingredients[type];
-        const updatedCount = oldCount + 1;
-        const updatedIngredients = {...this.state.ingredients};
-        updatedIngredients[type] = updatedCount;
-        
-        const oldPrice = this.state.totalPrice;
-        const newPrice = oldPrice + INGREDIENT_PRICES[type];
-        //newPrice = Math.round((newPrice + Number.EPSILON) * 100) / 100
-        this.setState({totalPrice: newPrice, ingredients: updatedIngredients});
-        this.updatePurchaseState(updatedIngredients);
-    }   
+    };
 
-    removeIngredientHandlder = (type) => {
-        const oldCount = this.state.ingredients[type];
-        if (oldCount <= 0) {
+    const addIngredientHandler = useCallback((type) => {
+        const updatedIngredients = {...ingredients};
+        updatedIngredients[type] = updatedIngredients[type] + 1;
+        setIngredients(updatedIngredients);
+        setTotalPrice(totalPrice + INGREDIENT_PRICES[type]);
+    }, [ingredients, totalPrice]);
+
+    const removeIngredientHandler = useCallback((type) => {
+        if (ingredients[type] <= 0) {
             return;
         }
-        const updatedCount = oldCount - 1;
-        const updatedIngredients = {...this.state.ingredients};
-        updatedIngredients[type] = updatedCount;
+        const updatedIngredients = {...ingredients};
+        updatedIngredients[type] = updatedIngredients[type] - 1;
+        setIngredients(updatedIngredients);
+        setTotalPrice(totalPrice - INGREDIENT_PRICES[type]);
+    }, [ingredients, totalPrice]);
 
-        const oldPrice = this.state.totalPrice;
-        const newPrice = oldPrice - INGREDIENT_PRICES[type];
-        //newPrice = Math.round((newPrice + Number.EPSILON) * 100) / 100
-        this.setState({totalPrice: newPrice, ingredients: updatedIngredients});
-        this.updatePurchaseState(updatedIngredients);
-    }
-
-    render() {
-        const disabledInfo = {
-            ...this.state.ingredients
-        };
-
-        for  (let key in disabledInfo) {
-            disabledInfo[key] = disabledInfo[key] <= 0;
+    const disabledInfo = useMemo(() => {
+        const disabled = {};
+        for (let key in ingredients) {
+            disabled[key] = ingredients[key] <= 0;
         }
+        return disabled;
+    }, [ingredients]);
 
-        return (
-            <div>
-                <Modal show={this.state.purchasing} modalClosed={this.purchaseCancelHandler}>
-                    <OrderSummary ingredients={this.state.ingredients}
-                        purchaseCanceled={this.purchaseCancelHandler}
-                        purchaseContinued={this.purchaseContinueHandler}
-                        price={this.state.totalPrice}></OrderSummary>
-                </Modal>
-                <Burger ingredients={this.state.ingredients} />
-                <BuildControls 
-                    ingredientAdded={this.addIngredientHandler}
-                    ingredientRemoved={this.removeIngredientHandlder}
-                    disabled={disabledInfo}
-                    purchasable={this.state.purchasable}
-                    ordered={this.purchaseHandler}
-                    price={this.state.totalPrice}
+    return (
+        <div>
+            <Modal show={purchasing} modalClosed={purchaseCancelHandler}>
+                <OrderSummary 
+                    ingredients={ingredients}
+                    purchaseCanceled={purchaseCancelHandler}
+                    purchaseContinued={purchaseContinueHandler}
+                    price={totalPrice}
                 />
-            </div>
-        );
-    }
-}
+            </Modal>
+            <Burger ingredients={ingredients} />
+            <BuildControls 
+                ingredientAdded={addIngredientHandler}
+                ingredientRemoved={removeIngredientHandler}
+                disabled={disabledInfo}
+                purchasable={purchasable}
+                ordered={purchaseHandler}
+                price={totalPrice}
+            />
+        </div>
+    );
+};
 
 export default BurgerBuilder;
